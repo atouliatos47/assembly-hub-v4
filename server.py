@@ -10,10 +10,12 @@ from flask_sock import Sock
 from openpyxl import load_workbook
 from docx import Document
 
-app = Flask(__name__, static_folder='public')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+app = Flask(__name__, static_folder=os.path.join(BASE_DIR, 'public'), static_url_path='/static')
 sock = Sock(app)
 
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), 'uploads')
+UPLOAD_DIR = os.path.join(BASE_DIR, 'uploads')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ─── In-memory state ───────────────────────────────────────────────────────
@@ -52,6 +54,17 @@ def doc_summary(doc):
         'uploadedAt': doc['uploadedAt'],
         'status': doc.get('status', 'ready')
     }
+
+def make_slug(name):
+    """Convert 'Assembly 1' → 'assembly-1', ensure uniqueness"""
+    slug = name.lower().strip()
+    slug = re.sub(r'[^a-z0-9]+', '-', slug).strip('-')
+    base = slug
+    counter = 2
+    while any(c['slug'] == slug for c in centers.values()):
+        slug = f"{base}-{counter}"
+        counter += 1
+    return slug
 
 # ─── File Parsing ──────────────────────────────────────────────────────────
 def kill_office_processes():
@@ -122,7 +135,6 @@ def convert_to_pdf(filepath):
 def parse_file_to_pdf(filepath, original_name, doc_id):
     """Convert to PDF and return iframe pointing to served PDF file"""
     pdf_path = convert_to_pdf(filepath)
-    # Store pdf path reference
     pdf_filename = os.path.basename(pdf_path)
 
     html = f'''<iframe 
@@ -131,41 +143,6 @@ def parse_file_to_pdf(filepath, original_name, doc_id):
         allowfullscreen
     ></iframe>'''
     return [{'title': original_name, 'html': html, 'isPdf': True, 'pdfId': doc_id}]
-
-import threading
-
-def convert_in_background(doc_id, filepath, original_name):
-    """Run PDF conversion in background thread, broadcast when done"""
-    try:
-        doc_id_for_pdf = doc_id
-        pdf_path = convert_to_pdf(filepath)
-        pdf_filename = os.path.basename(pdf_path)
-        html = f'''<iframe 
-            src="/api/pdf/{doc_id_for_pdf}#toolbar=0&navpanes=0&scrollbar=0&view=FitH&pagemode=none"
-            style="width:100%;height:100%;border:none;display:block;position:absolute;inset:0;"
-            allowfullscreen
-        ></iframe>'''
-        pages = [{'title': original_name, 'html': html, 'isPdf': True, 'pdfId': doc_id_for_pdf}]
-
-        if doc_id in documents:
-            documents[doc_id]['pages'] = pages
-            documents[doc_id]['status'] = 'ready'
-            broadcast({'type': 'DOCUMENT_READY', 'docId': doc_id, 'document': doc_summary(documents[doc_id])})
-    except Exception as e:
-        if doc_id in documents:
-            documents[doc_id]['status'] = 'error'
-            documents[doc_id]['error'] = str(e)
-            broadcast({'type': 'DOCUMENT_ERROR', 'docId': doc_id, 'error': str(e)})
-    """Convert 'Assembly 1' → 'assembly-1', ensure uniqueness"""
-    slug = name.lower().strip()
-    slug = re.sub(r'[^a-z0-9]+', '-', slug).strip('-')
-    base = slug
-    counter = 2
-    while any(c['slug'] == slug for c in centers.values()):
-        slug = f"{base}-{counter}"
-        counter += 1
-    return slug
-
 
 def convert_in_background(doc_id, filepath, filename):
     """Run PDF conversion in background thread, broadcast when done"""
@@ -179,29 +156,34 @@ def convert_in_background(doc_id, filepath, filename):
         documents[doc_id]['error'] = str(e)
         broadcast({'type': 'DOCUMENT_ERROR', 'id': doc_id, 'error': str(e)})
 
+# ─── Routes ────────────────────────────────────────────────────────────────
 @app.route('/')
 def index():
-    return send_from_directory('public/dashboard', 'index.html')
+    return send_from_directory(os.path.join(BASE_DIR, 'public/dashboard'), 'index.html')
 
 @app.route('/dashboard')
 def dashboard():
-    return send_from_directory('public/dashboard', 'index.html')
+    return send_from_directory(os.path.join(BASE_DIR, 'public/dashboard'), 'index.html')
 
 @app.route('/display/<center_ref>')
 def display(center_ref):
-    return send_from_directory('public/display', 'index.html')
+    return send_from_directory(os.path.join(BASE_DIR, 'public/display'), 'index.html')
 
 @app.route('/public/<path:filename>')
 def static_files(filename):
-    return send_from_directory('public', filename)
+    return send_from_directory(os.path.join(BASE_DIR, 'public'), filename)
+
+@app.route('/logo.png')
+def serve_logo():
+    return send_from_directory(BASE_DIR + '/public', 'logo.png', mimetype='image/png')
 
 @app.route('/dashboard/<path:filename>')
 def dashboard_static(filename):
-    return send_from_directory('public/dashboard', filename)
+    return send_from_directory(os.path.join(BASE_DIR, 'public/dashboard'), filename)
 
 @app.route('/display/manifest.json')
 def display_manifest():
-    return send_from_directory('public/display', 'manifest.json')
+    return send_from_directory(os.path.join(BASE_DIR, 'public/display'), 'manifest.json')
 
 # ─── Documents API ─────────────────────────────────────────────────────────
 @app.route('/api/pdf/<doc_id>')
@@ -248,7 +230,7 @@ def upload_document():
         'uploadedAt': datetime.now().isoformat(),
         'filePath': filepath
     }
-    documents[doc_id] = doc
+    documents[doc['id']] = doc
     broadcast({'type': 'DOCUMENT_ADDED', 'document': doc_summary(doc)})
 
     # Convert in background
@@ -465,8 +447,8 @@ if __name__ == '__main__':
         local_ip = 'localhost'
 
     # Use HTTPS if cert files exist
-    cert_file = os.path.join(os.path.dirname(__file__), 'cert.pem')
-    key_file  = os.path.join(os.path.dirname(__file__), 'key.pem')
+    cert_file = os.path.join(BASE_DIR, 'cert.pem')
+    key_file  = os.path.join(BASE_DIR, 'key.pem')
     ssl_ctx = None
     protocol = 'http'
 
@@ -475,6 +457,9 @@ if __name__ == '__main__':
         protocol = 'https'
 
     print('\n🏭 Assembly Hub Server Running')
+    print(f'   Base Dir  : {BASE_DIR}')
+    logo_path = os.path.join(BASE_DIR, 'public', 'logo.png')
+    print(f'   Logo      : {logo_path} ({"EXISTS" if os.path.exists(logo_path) else "MISSING!"})')
     print(f'   Dashboard : {protocol}://{local_ip}:{PORT}/dashboard')
     print(f'   Local     : {protocol}://localhost:{PORT}/dashboard')
     if protocol == 'https':

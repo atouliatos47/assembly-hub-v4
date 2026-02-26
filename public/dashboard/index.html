@@ -16,12 +16,13 @@
       --surface: #ffffff;
       --surface2: #f8fafc;
       --border: #e2e8f0;
-      --accent: #d97706;
+      --accent: #8cc63f;
       --accent2: #2563eb;
       --success: #059669;
       --danger: #dc2626;
       --text: #0f172a;
       --muted: #64748b;
+      --header-bg: #2d4050;
       --font-display: 'Bebas Neue', sans-serif;
       --font-mono: 'IBM Plex Mono', monospace;
       --font-body: 'IBM Plex Sans', sans-serif;
@@ -49,22 +50,23 @@
 
     header {
       position: sticky; top: 0; z-index: 100;
-      background: rgba(241,245,249,0.92);
-      backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
+      background: var(--header-bg);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
       padding: 0 2rem;
       display: flex; align-items: center; gap: 2rem;
       height: 64px;
     }
 
-    .logo { font-family: var(--font-display); font-size: 1.8rem; letter-spacing: 2px; color: var(--accent); }
-    .logo span { color: var(--text); }
+    .logo { display: flex; align-items: center; gap: 0.75rem; }
+    .logo img { height: 32px; }
+    .logo-divider { width: 1px; height: 24px; background: rgba(255,255,255,0.2); }
+    .logo-text { font-family: var(--font-display); font-size: 1.3rem; letter-spacing: 2px; color: var(--accent); }
 
-    .ws-status { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
+    .ws-status { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 0.72rem; color: rgba(255,255,255,0.6); }
     .ws-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); transition: background 0.3s; }
     .ws-dot.connected { background: var(--success); box-shadow: 0 0 8px var(--success); }
 
-    .header-right { margin-left: auto; font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); }
+    .header-right { margin-left: auto; font-family: var(--font-mono); font-size: 0.7rem; color: rgba(255,255,255,0.5); }
 
     main {
       position: relative; z-index: 1;
@@ -140,7 +142,7 @@
 
     .btn { padding: 0.45rem 0.9rem; border: none; border-radius: 6px; font-family: var(--font-mono); font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
     .btn-primary { background: var(--accent); color: #000; }
-    .btn-primary:hover { background: #d97706; }
+    .btn-primary:hover { background: #7ab635; }
     .btn-sm { padding: 0.28rem 0.55rem; font-size: 0.65rem; }
     .btn-danger { background: rgba(239,68,68,0.12); color: var(--danger); border: 1px solid rgba(239,68,68,0.25); }
     .btn-danger:hover { background: var(--danger); color: #fff; }
@@ -161,7 +163,7 @@
     .center-assigned.has-doc { color: var(--accent2); }
     .center-actions { display: flex; gap: 0.35rem; flex-wrap: wrap; }
 
-    .content-area { display: flex; flex-direction: column; overflow: hidden; }
+    .content-area { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
     .toolbar { padding: 0.85rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 1rem; flex-shrink: 0; background: var(--surface); }
     .toolbar-label { font-family: var(--font-mono); font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
     .selected-doc-badge { font-family: var(--font-mono); font-size: 0.72rem; color: var(--accent); background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); padding: 0.28rem 0.7rem; border-radius: 4px; }
@@ -176,7 +178,7 @@
     .preview-tab:hover { color: var(--text); }
     .preview-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-    .preview-area { flex: 1; overflow: auto; padding: 1.5rem; background: #fff; color: #111; }
+    .preview-area { flex: 1; height: 0; overflow: auto; padding: 1.5rem; background: #fff; color: #111; }
     .preview-area h1,.preview-area h2,.preview-area h3 { color: #1a1a2e; margin-bottom: 0.5rem; margin-top: 1rem; }
     .preview-area p { margin-bottom: 0.6rem; line-height: 1.6; }
     .preview-area table { border-collapse: collapse; font-size: 13px; white-space: nowrap; }
@@ -210,7 +212,11 @@
 <body>
 
 <header>
-  <div class="logo">ASSEMBLY<span>HUB</span></div>
+  <div class="logo">
+    <img src="/logo.png" alt="Clamason" />
+    <div class="logo-divider"></div>
+    <span class="logo-text">ASSEMBLY HUB</span>
+  </div>
   <div class="ws-status">
     <div class="ws-dot" id="wsDot"></div>
     <span id="wsLabel">Connecting...</span>
@@ -480,26 +486,62 @@ function renderPage(idx) {
 }
 
 async function renderPdfToCanvas(url, container) {
+  // Wait one frame for the flex layout to settle before measuring
+  await new Promise(r => requestAnimationFrame(r));
   try {
     const pdfjsLib = await loadPdfJs();
     const pdf = await pdfjsLib.getDocument(url).promise;
-    const page = await pdf.getPage(1);
+    const totalPages = pdf.numPages;
 
-    const containerW = container.clientWidth;
-    const containerH = container.clientHeight;
-    const viewport = page.getViewport({ scale: 1 });
-    const scale = Math.min(containerW / viewport.width, containerH / viewport.height) * 0.97;
-    const scaledViewport = page.getViewport({ scale });
+    const rect = container.getBoundingClientRect();
+    const containerW = rect.width;
+    const containerH = rect.height;
+    const dpr = window.devicePixelRatio || 1;
 
-    container.innerHTML = '<canvas style="display:block;margin:auto;"></canvas>';
-    const canvas = container.querySelector('canvas');
+    // Get all pages and their viewports at scale 1
+    const pageData = [];
+    for (let i = 1; i <= totalPages; i++) {
+      const page = await pdf.getPage(i);
+      const vp = page.getViewport({ scale: 1 });
+      pageData.push({ page, vp });
+    }
+
+    // Calculate total height and max width at scale 1
+    const maxW = Math.max(...pageData.map(p => p.vp.width));
+    const totalH = pageData.reduce((sum, p) => sum + p.vp.height, 0);
+
+    // Scale to fill 98% of the container
+    const scale = Math.min(containerW / maxW, containerH / totalH) * 0.98;
+
+    container.innerHTML = '';
+    const canvas = document.createElement('canvas');
+    const cssW = Math.floor(maxW * scale);
+    const cssH = Math.floor(totalH * scale);
+
+    // High-DPI: canvas pixels = CSS size × devicePixelRatio
+    canvas.width = cssW * dpr;
+    canvas.height = cssH * dpr;
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    canvas.style.display = 'block';
+    canvas.style.position = 'absolute';
+    canvas.style.top = '50%';
+    canvas.style.left = '50%';
+    canvas.style.transform = 'translate(-50%, -50%)';
+    container.appendChild(canvas);
+
     const ctx = canvas.getContext('2d');
-    canvas.width = scaledViewport.width;
-    canvas.height = scaledViewport.height;
-    // Center vertically
-    canvas.style.marginTop = Math.max(0, (containerH - scaledViewport.height) / 2) + 'px';
+    ctx.scale(dpr, dpr);
+    let yOffset = 0;
 
-    await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+    for (const { page, vp } of pageData) {
+      const scaledVp = page.getViewport({ scale });
+      ctx.save();
+      ctx.translate(0, yOffset);
+      await page.render({ canvasContext: ctx, viewport: scaledVp }).promise;
+      ctx.restore();
+      yOffset += Math.floor(vp.height * scale);
+    }
   } catch(e) {
     container.innerHTML = `<div style="padding:2rem;color:var(--danger);font-family:var(--font-mono);font-size:0.8rem">Failed to load PDF: ${e.message}</div>`;
   }
@@ -574,7 +616,7 @@ function renderCenterList() {
           <div class="center-actions">
             <button class="btn btn-ghost btn-sm" onclick="openAssign('${c.id}')">📋 Assign</button>
             <button class="btn btn-ghost btn-sm" onclick="copyLink('${displayUrl}')">🔗 Link</button>
-            ${c.assignedDoc ? `<button class="btn btn-ghost btn-sm" onclick="clearAssignment('${c.id}')" title="Clear assignment" style="color:#d97706;border-color:#d97706;">⊘</button>` : ''}
+            ${c.assignedDoc ? `<button class="btn btn-ghost btn-sm" onclick="clearAssignment('${c.id}')" title="Clear assignment" style="color:#8cc63f;border-color:#8cc63f;">⊘</button>` : ''}
             <button class="btn btn-danger btn-sm" onclick="deleteCenter('${c.id}')">✕</button>
           </div>
         </div>
@@ -660,7 +702,7 @@ function copyLink(url) {
       <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:0.75rem;font-family:'IBM Plex Mono',monospace;font-size:0.78rem;color:#0f172a;word-break:break-all;margin-bottom:1rem;user-select:all">${url}</div>
       <div style="display:flex;gap:0.5rem;justify-content:flex-end">
         <button onclick="document.getElementById('linkOverlay').remove()" style="padding:0.45rem 1rem;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:0.72rem">Close</button>
-        <button onclick="fallbackCopy('${url}',this)" style="padding:0.45rem 1rem;border-radius:6px;border:none;background:#d97706;color:#fff;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;font-weight:600">Copy</button>
+        <button onclick="fallbackCopy('${url}',this)" style="padding:0.45rem 1rem;border-radius:6px;border:none;background:#8cc63f;color:#fff;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;font-weight:600">Copy</button>
       </div>
     </div>`;
   document.body.appendChild(box);

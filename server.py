@@ -446,11 +446,60 @@ if __name__ == '__main__':
     except:
         local_ip = 'localhost'
 
-    # Use HTTPS if cert files exist
+    # Auto-generate SSL cert for the current IP
     cert_file = os.path.join(BASE_DIR, 'cert.pem')
     key_file  = os.path.join(BASE_DIR, 'key.pem')
     ssl_ctx = None
     protocol = 'http'
+
+    def generate_self_signed_cert(ip):
+        """Generate a self-signed cert matching the current machine's IP"""
+        import subprocess, shutil
+        openssl = shutil.which('openssl')
+        if not openssl:
+            print('   ⚠ openssl not found — running without HTTPS')
+            return False
+        
+        san = f'IP:{ip},IP:127.0.0.1,DNS:localhost'
+        result = subprocess.run([
+            openssl, 'req', '-x509', '-newkey', 'rsa:2048',
+            '-keyout', key_file, '-out', cert_file,
+            '-days', '1095', '-nodes',
+            '-subj', f'/C=GB/O=Clamason Industries/CN={ip}',
+            '-addext', f'subjectAltName={san}'
+        ], capture_output=True)
+        return result.returncode == 0
+
+    def get_cert_ip():
+        """Read the CN (IP) from existing cert"""
+        try:
+            import subprocess
+            result = subprocess.run(
+                ['openssl', 'x509', '-in', cert_file, '-noout', '-subject'],
+                capture_output=True, text=True
+            )
+            for part in result.stdout.split(','):
+                if 'CN' in part:
+                    return part.split('=')[-1].strip()
+        except:
+            pass
+        return None
+
+    # Check if we need a new cert
+    need_new_cert = True
+    if os.path.exists(cert_file) and os.path.exists(key_file):
+        existing_ip = get_cert_ip()
+        if existing_ip == local_ip:
+            need_new_cert = False
+            print(f'   🔒 Existing cert matches IP {local_ip}')
+        else:
+            print(f'   🔄 IP changed ({existing_ip} → {local_ip}), regenerating cert...')
+
+    if need_new_cert:
+        if generate_self_signed_cert(local_ip):
+            print(f'   🔒 Generated new SSL cert for {local_ip}')
+        else:
+            print('   ⚠ Could not generate cert — running HTTP only')
 
     if os.path.exists(cert_file) and os.path.exists(key_file):
         ssl_ctx = (cert_file, key_file)

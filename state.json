@@ -1,0 +1,66 @@
+{
+  "centers": {
+    "bdb2eaac-afe9-4c25-84eb-17cdbed35480": {
+      "id": "bdb2eaac-afe9-4c25-84eb-17cdbed35480",
+      "name": "Assembly 1",
+      "slug": "assembly-1",
+      "color": "#2563eb",
+      "assignedDoc": {
+        "id": "6900e3d5-d413-484c-97e2-40d8210d4f7d",
+        "name": "K8D40340AA.xlsx",
+        "type": "pdf"
+      },
+      "currentPage": 0,
+      "createdAt": "2026-02-28T14:59:19.437883"
+    },
+    "afc626bc-45b3-4824-833e-2b7c8265446e": {
+      "id": "afc626bc-45b3-4824-833e-2b7c8265446e",
+      "name": "Assembly 2",
+      "slug": "assembly-2",
+      "color": "#2563eb",
+      "assignedDoc": {
+        "id": "7e586f38-5129-4f8a-b4ce-9d01b1756422",
+        "name": "tool_planner_export.xlsx",
+        "type": "pdf"
+      },
+      "currentPage": 0,
+      "createdAt": "2026-02-28T15:01:01.809398"
+    }
+  },
+  "documents": {
+    "6900e3d5-d413-484c-97e2-40d8210d4f7d": {
+      "id": "6900e3d5-d413-484c-97e2-40d8210d4f7d",
+      "name": "K8D40340AA.xlsx",
+      "originalName": "K8D40340AA.xlsx",
+      "type": "pdf",
+      "pages": [
+        {
+          "title": "K8D40340AA.xlsx",
+          "html": "<iframe \n        src=\"/api/pdf/6900e3d5-d413-484c-97e2-40d8210d4f7d#toolbar=0&navpanes=0&scrollbar=0&view=FitH&pagemode=none\"\n        style=\"width:100%;height:100%;border:none;display:block;position:absolute;inset:0;\"\n        allowfullscreen\n    ></iframe>",
+          "isPdf": true,
+          "pdfId": "6900e3d5-d413-484c-97e2-40d8210d4f7d"
+        }
+      ],
+      "status": "ready",
+      "uploadedAt": "2026-02-28T14:59:49.777741",
+      "filePath": "C:\\Projects\\assembly-hub-v4-main\\assembly-hub-v4-main\\uploads\\1772290789_K8D40340AA.xlsx"
+    },
+    "7e586f38-5129-4f8a-b4ce-9d01b1756422": {
+      "id": "7e586f38-5129-4f8a-b4ce-9d01b1756422",
+      "name": "tool_planner_export.xlsx",
+      "originalName": "tool_planner_export.xlsx",
+      "type": "pdf",
+      "pages": [
+        {
+          "title": "tool_planner_export.xlsx",
+          "html": "<iframe \n        src=\"/api/pdf/7e586f38-5129-4f8a-b4ce-9d01b1756422#toolbar=0&navpanes=0&scrollbar=0&view=FitH&pagemode=none\"\n        style=\"width:100%;height:100%;border:none;display:block;position:absolute;inset:0;\"\n        allowfullscreen\n    ></iframe>",
+          "isPdf": true,
+          "pdfId": "7e586f38-5129-4f8a-b4ce-9d01b1756422"
+        }
+      ],
+      "status": "ready",
+      "uploadedAt": "2026-02-28T15:01:23.719844",
+      "filePath": "C:\\Projects\\assembly-hub-v4-main\\assembly-hub-v4-main\\uploads\\1772290883_tool_planner_export.xlsx"
+    }
+  }
+}

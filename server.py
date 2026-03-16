@@ -478,81 +478,82 @@ def handle_message(client_id, msg):
 
 # ─── Start ─────────────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    PORT = 8443
+    # Use Render's PORT env var if available, otherwise default to 8443 for local
+    PORT = int(os.environ.get('PORT', 8443))
     hostname = socket.gethostname()
     try:
         local_ip = socket.gethostbyname(hostname)
     except:
         local_ip = 'localhost'
 
-    # Auto-generate SSL cert for the current IP
-    cert_file = os.path.join(BASE_DIR, 'cert.pem')
-    key_file  = os.path.join(BASE_DIR, 'key.pem')
-    ssl_ctx = None
-    protocol = 'http'
-
-    def generate_self_signed_cert(ip):
-        """Generate a self-signed cert matching the current machine's IP"""
-        import subprocess, shutil
-        openssl = shutil.which('openssl')
-        if not openssl:
-            print('   ⚠ openssl not found — running without HTTPS')
-            return False
-        
-        san = f'IP:{ip},IP:127.0.0.1,DNS:localhost'
-        result = subprocess.run([
-            openssl, 'req', '-x509', '-newkey', 'rsa:2048',
-            '-keyout', key_file, '-out', cert_file,
-            '-days', '1095', '-nodes',
-            '-subj', f'/C=GB/O=Clamason Industries/CN={ip}',
-            '-addext', f'subjectAltName={san}'
-        ], capture_output=True)
-        return result.returncode == 0
-
-    def get_cert_ip():
-        """Read the CN (IP) from existing cert"""
-        try:
-            import subprocess
-            result = subprocess.run(
-                ['openssl', 'x509', '-in', cert_file, '-noout', '-subject'],
-                capture_output=True, text=True
-            )
-            for part in result.stdout.split(','):
-                if 'CN' in part:
-                    return part.split('=')[-1].strip()
-        except:
-            pass
-        return None
-
-    # Check if we need a new cert
-    need_new_cert = True
-    if os.path.exists(cert_file) and os.path.exists(key_file):
-        existing_ip = get_cert_ip()
-        if existing_ip == local_ip:
-            need_new_cert = False
-            print(f'   🔒 Existing cert matches IP {local_ip}')
-        else:
-            print(f'   🔄 IP changed ({existing_ip} → {local_ip}), regenerating cert...')
-
-    if need_new_cert:
-        if generate_self_signed_cert(local_ip):
-            print(f'   🔒 Generated new SSL cert for {local_ip}')
-        else:
-            print('   ⚠ Could not generate cert — running HTTP only')
-
-    if os.path.exists(cert_file) and os.path.exists(key_file):
-        ssl_ctx = (cert_file, key_file)
-        protocol = 'https'
+    IS_RENDER = 'RENDER' in os.environ
 
     print('\n🏭 Assembly Hub Server Running')
     print(f'   Base Dir  : {BASE_DIR}')
     load_state()
     logo_path = os.path.join(BASE_DIR, 'public', 'logo.png')
     print(f'   Logo      : {logo_path} ({"EXISTS" if os.path.exists(logo_path) else "MISSING!"})')
-    print(f'   Dashboard : {protocol}://{local_ip}:{PORT}/dashboard')
-    print(f'   Local     : {protocol}://localhost:{PORT}/dashboard')
-    if protocol == 'https':
-        print('   🔒 HTTPS enabled — PWA install available')
-    print(f'   Network IP: {local_ip}\n')
+    print(f'   Port      : {PORT}')
+    print(f'   Network IP: {local_ip}')
 
+    ssl_ctx = None
+
+    # Only use SSL when running locally (not on Render — Render handles HTTPS itself)
+    if not IS_RENDER:
+        import subprocess, shutil
+        cert_file = os.path.join(BASE_DIR, 'cert.pem')
+        key_file  = os.path.join(BASE_DIR, 'key.pem')
+
+        def get_cert_ip():
+            try:
+                result = subprocess.run(
+                    ['openssl', 'x509', '-in', cert_file, '-noout', '-subject'],
+                    capture_output=True, text=True)
+                for part in result.stdout.split(','):
+                    if 'CN' in part:
+                        return part.split('=')[-1].strip()
+            except:
+                pass
+            return None
+
+        def generate_self_signed_cert(ip):
+            openssl = shutil.which('openssl')
+            if not openssl:
+                print('   ⚠ openssl not found — running without HTTPS')
+                return False
+            san = f'IP:{ip},IP:127.0.0.1,DNS:localhost'
+            result = subprocess.run([
+                openssl, 'req', '-x509', '-newkey', 'rsa:2048',
+                '-keyout', key_file, '-out', cert_file,
+                '-days', '1095', '-nodes',
+                '-subj', f'/C=GB/O=Clamason Industries/CN={ip}',
+                '-addext', f'subjectAltName={san}'
+            ], capture_output=True)
+            return result.returncode == 0
+
+        need_new_cert = True
+        if os.path.exists(cert_file) and os.path.exists(key_file):
+            existing_ip = get_cert_ip()
+            if existing_ip == local_ip:
+                need_new_cert = False
+                print(f'   🔒 Existing cert matches IP {local_ip}')
+            else:
+                print(f'   🔄 IP changed ({existing_ip} → {local_ip}), regenerating cert...')
+
+        if need_new_cert:
+            if generate_self_signed_cert(local_ip):
+                print(f'   🔒 Generated new SSL cert for {local_ip}')
+            else:
+                print('   ⚠ Could not generate cert — running HTTP only')
+
+        if os.path.exists(cert_file) and os.path.exists(key_file):
+            ssl_ctx = (cert_file, key_file)
+            print(f'   Dashboard : https://{local_ip}:{PORT}/dashboard')
+            print('   🔒 HTTPS enabled — PWA install available')
+        else:
+            print(f'   Dashboard : http://{local_ip}:{PORT}/dashboard')
+    else:
+        print('   ☁ Running on Render — HTTPS handled by platform')
+
+    print()
     app.run(host='0.0.0.0', port=PORT, debug=False, ssl_context=ssl_ctx)
